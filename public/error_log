@@ -1,0 +1,4 @@
+[15-Feb-2026 22:24:49 Asia/Jakarta] PHP Fatal error:  Uncaught Error: Call to undefined function exec() in /home/tujb2377/public_html/iot4.tujukuda.com/public/fix.php:10
+Stack trace:
+#0 {main}
+  thrown in /home/tujb2377/public_html/iot4.tujukuda.com/public/fix.php on line 10
