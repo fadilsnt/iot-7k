@@ -16,10 +16,16 @@ class MachineReportExport implements FromCollection, WithEvents
 {
     protected $machines;
     protected $params;
+    private const EXCLUDED_MACHINE_IDS = ['SCREW-T', 'SCREW-T BLOWER'];
 
     public function __construct($machines, $params)
     {
-        $this->machines = collect($machines);
+        $this->machines = collect($machines)
+            ->filter(function ($machine) {
+                $machineId = strtoupper(trim((string) ($machine['name'] ?? '')));
+                return !in_array($machineId, self::EXCLUDED_MACHINE_IDS, true);
+            })
+            ->values();
         $this->params = $params;
     }
 
@@ -31,9 +37,9 @@ class MachineReportExport implements FromCollection, WithEvents
     public function registerEvents(): array
     {
         return [
-            AfterSheet::class => function(AfterSheet $event) {
+            AfterSheet::class => function (AfterSheet $event) {
                 $sheet = $event->sheet->getDelegate();
-                
+
                 // HEADER
                 $sheet->setCellValue('A1', 'REKAP HM MESIN PRESS');
                 $sheet->mergeCells('A1:J1');
@@ -58,7 +64,7 @@ class MachineReportExport implements FromCollection, WithEvents
 
                 // TABLE HEADERS (Row 5)
                 $headers = ['NO', 'NO MESIN', 'LINE', 'AWAL', 'AKHIR', 'PEMAKAIAN PER MESIN DALAM 1 MINGGU (JAM)', 'HARI KERJA', 'JAM PER HARI', 'JUMLAH BRIKET (BATANG)', 'KETERANGAN'];
-                
+
                 $sheet->setCellValue('A5', 'NO');
                 $sheet->setCellValue('B5', 'NO MESIN');
                 $sheet->setCellValue('C5', 'LINE');
@@ -98,26 +104,26 @@ class MachineReportExport implements FromCollection, WithEvents
                 // DATA ROWS
                 $row = 7;
                 $machineCount = $this->machines->count();
-                
+
                 foreach ($this->machines as $index => $machine) {
                     $sheet->setCellValue("A{$row}", $index + 1);
                     $sheet->setCellValue("B{$row}", $machine['name']);
                     $sheet->setCellValue("C{$row}", $this->params['line']);
                     $sheet->setCellValue("D{$row}", $machine['hm_awal']);
-                    
+
                     // For visual consistency: HM Akhir = HM Awal + Pemakaian
                     $calculatedHM = $machine['hm'];
                     $visualHMAkhir = $machine['hm_awal'] + $calculatedHM;
                     $sheet->setCellValue("E{$row}", $visualHMAkhir);
-                    
+
                     // PEMAKAIAN PER MESIN: 1 decimal place
                     $sheet->setCellValue("F{$row}", $calculatedHM);
                     $sheet->setCellValue("G{$row}", $this->params['hari_kerja']);
-                    
+
                     // JAM PER HARI: actual average usage per day, no decimals
                     $jamPerHari = $this->params['hari_kerja'] > 0 ? $calculatedHM / $this->params['hari_kerja'] : 0;
                     $sheet->setCellValue("H{$row}", $jamPerHari);
-                    
+
                     $row++;
                 }
 
@@ -152,33 +158,33 @@ class MachineReportExport implements FromCollection, WithEvents
                 $totalRow = $dataEndRow + 1;
                 $totalHours = $this->machines->sum('hm');
                 $totalSeconds = $totalHours * 3600;
-                
+
                 // TOTAL JAM KERJA KESELURUHAN (Input value directly)
                 $totalWorkingHoursSingle = $this->params['jam_kerja'];
-                
+
                 // TOTAL JAM
                 $sheet->mergeCells("D{$totalRow}:E{$totalRow}");
                 $sheet->setCellValue("D{$totalRow}", 'TOTAL JAM');
                 $sheet->setCellValue("F{$totalRow}", $totalHours);
-                
-                $totalDailyAvg = $this->machines->sum(function($m) {
+
+                $totalDailyAvg = $this->machines->sum(function ($m) {
                     return $this->params['hari_kerja'] > 0 ? $m['hm'] / $this->params['hari_kerja'] : 0;
                 });
                 $sheet->setCellValue("H{$totalRow}", $totalDailyAvg);
                 $sheet->setCellValue("I{$totalRow}", $this->params['total_briket']);
 
                 // TOTAL DETIK
-                $sheet->mergeCells("D".($totalRow+1).":E".($totalRow+1));
-                $sheet->setCellValue("D".($totalRow+1), 'TOTAL DETIK');
-                $sheet->setCellValue("F".($totalRow+1), $totalSeconds);
+                $sheet->mergeCells("D" . ($totalRow + 1) . ":E" . ($totalRow + 1));
+                $sheet->setCellValue("D" . ($totalRow + 1), 'TOTAL DETIK');
+                $sheet->setCellValue("F" . ($totalRow + 1), $totalSeconds);
 
                 // TOTAL JAM KERJA
-                $sheet->mergeCells("D".($totalRow+2).":E".($totalRow+2));
-                $sheet->setCellValue("D".($totalRow+2), 'TOTAL JAM KERJA');
-                $sheet->setCellValue("F".($totalRow+2), $totalWorkingHoursSingle);
+                $sheet->mergeCells("D" . ($totalRow + 2) . ":E" . ($totalRow + 2));
+                $sheet->setCellValue("D" . ($totalRow + 2), 'TOTAL JAM KERJA');
+                $sheet->setCellValue("F" . ($totalRow + 2), $totalWorkingHoursSingle);
 
                 // Style the total rows (Headers & Values)
-                $sheet->getStyle("D{$totalRow}:I".($totalRow+2))->applyFromArray([
+                $sheet->getStyle("D{$totalRow}:I" . ($totalRow + 2))->applyFromArray([
                     'font' => ['bold' => true],
                     'alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER],
                 ]);
@@ -187,42 +193,42 @@ class MachineReportExport implements FromCollection, WithEvents
                 // Row TOTAL JAM
                 $sheet->getStyle("D{$totalRow}:F{$totalRow}")->getBorders()->getAllBorders()->setBorderStyle(Border::BORDER_THIN);
                 $sheet->getStyle("H{$totalRow}:I{$totalRow}")->getBorders()->getAllBorders()->setBorderStyle(Border::BORDER_THIN);
-                
+
                 // Row TOTAL DETIK
-                $sheet->getStyle("D".($totalRow+1).":F".($totalRow+1))->getBorders()->getAllBorders()->setBorderStyle(Border::BORDER_THIN);
-                
+                $sheet->getStyle("D" . ($totalRow + 1) . ":F" . ($totalRow + 1))->getBorders()->getAllBorders()->setBorderStyle(Border::BORDER_THIN);
+
                 // Row TOTAL JAM KERJA
-                $sheet->getStyle("D".($totalRow+2).":F".($totalRow+2))->getBorders()->getAllBorders()->setBorderStyle(Border::BORDER_THIN);
+                $sheet->getStyle("D" . ($totalRow + 2) . ":F" . ($totalRow + 2))->getBorders()->getAllBorders()->setBorderStyle(Border::BORDER_THIN);
 
                 // Cleanup: remove border from unused cells in total rows if needed, 
                 // but usually better to just border the specific ones we used.
 
                 // SUMMARY AT BOTTOM (as small table)
                 $avgMachines = $totalWorkingHoursSingle > 0 ? $totalHours / $totalWorkingHoursSingle : 0;
-                
+
                 $summaryRow2 = $totalRow + 4;
                 $secondsPerBriket = $this->params['total_briket'] > 0 ? $totalSeconds / $this->params['total_briket'] : 0;
 
                 $sheet->mergeCells("B{$summaryRow2}:D{$summaryRow2}");
                 $sheet->setCellValue("B{$summaryRow2}", "TOTAL PEMAKAIAN\nMESIN PRESS\n(DETIK)");
-                
+
                 $sheet->mergeCells("E{$summaryRow2}:F{$summaryRow2}");
                 $sheet->setCellValue("E{$summaryRow2}", "JUMLAH\nBRIKET\n(BATANG)");
-                
+
                 $sheet->mergeCells("G{$summaryRow2}:H{$summaryRow2}");
                 $sheet->setCellValue("G{$summaryRow2}", "1 BATANG\n(DETIK)");
 
                 // Values for Table 2
-                $sheet->mergeCells("B".($summaryRow2+1).":D".($summaryRow2+1));
-                $sheet->setCellValue("B".($summaryRow2+1), $totalSeconds);
-                
-                $sheet->mergeCells("E".($summaryRow2+1).":F".($summaryRow2+1));
-                $sheet->setCellValue("E".($summaryRow2+1), $this->params['total_briket']);
-                
-                $sheet->mergeCells("G".($summaryRow2+1).":H".($summaryRow2+1));
-                $sheet->setCellValue("G".($summaryRow2+1), $secondsPerBriket);
+                $sheet->mergeCells("B" . ($summaryRow2 + 1) . ":D" . ($summaryRow2 + 1));
+                $sheet->setCellValue("B" . ($summaryRow2 + 1), $totalSeconds);
 
-                $sheet->getStyle("B{$summaryRow2}:H".($summaryRow2+1))->applyFromArray([
+                $sheet->mergeCells("E" . ($summaryRow2 + 1) . ":F" . ($summaryRow2 + 1));
+                $sheet->setCellValue("E" . ($summaryRow2 + 1), $this->params['total_briket']);
+
+                $sheet->mergeCells("G" . ($summaryRow2 + 1) . ":H" . ($summaryRow2 + 1));
+                $sheet->setCellValue("G" . ($summaryRow2 + 1), $secondsPerBriket);
+
+                $sheet->getStyle("B{$summaryRow2}:H" . ($summaryRow2 + 1))->applyFromArray([
                     'borders' => ['allBorders' => ['borderStyle' => Border::BORDER_THIN]],
                     'font' => ['bold' => true],
                     'alignment' => [
@@ -237,24 +243,24 @@ class MachineReportExport implements FromCollection, WithEvents
 
                 $sheet->mergeCells("B{$summaryRow3}:D{$summaryRow3}");
                 $sheet->setCellValue("B{$summaryRow3}", "TOTAL PEMAKAIAN\nMESIN PRESS\n(JAM)");
-                
+
                 $sheet->mergeCells("E{$summaryRow3}:F{$summaryRow3}");
                 $sheet->setCellValue("E{$summaryRow3}", "TOTAL\nJAM KERJA");
-                
+
                 $sheet->mergeCells("G{$summaryRow3}:H{$summaryRow3}");
                 $sheet->setCellValue("G{$summaryRow3}", "RATA-RATA\nMESIN YANG JALAN");
 
                 // Values for Table 3
-                $sheet->mergeCells("B".($summaryRow3+1).":D".($summaryRow3+1));
-                $sheet->setCellValue("B".($summaryRow3+1), $totalHours);
-                
-                $sheet->mergeCells("E".($summaryRow3+1).":F".($summaryRow3+1));
-                $sheet->setCellValue("E".($summaryRow3+1), $totalWorkingHoursSingle);
-                
-                $sheet->mergeCells("G".($summaryRow3+1).":H".($summaryRow3+1));
-                $sheet->setCellValue("G".($summaryRow3+1), $avgMachines);
+                $sheet->mergeCells("B" . ($summaryRow3 + 1) . ":D" . ($summaryRow3 + 1));
+                $sheet->setCellValue("B" . ($summaryRow3 + 1), $totalHours);
 
-                $sheet->getStyle("B{$summaryRow3}:H".($summaryRow3+1))->applyFromArray([
+                $sheet->mergeCells("E" . ($summaryRow3 + 1) . ":F" . ($summaryRow3 + 1));
+                $sheet->setCellValue("E" . ($summaryRow3 + 1), $totalWorkingHoursSingle);
+
+                $sheet->mergeCells("G" . ($summaryRow3 + 1) . ":H" . ($summaryRow3 + 1));
+                $sheet->setCellValue("G" . ($summaryRow3 + 1), $avgMachines);
+
+                $sheet->getStyle("B{$summaryRow3}:H" . ($summaryRow3 + 1))->applyFromArray([
                     'borders' => ['allBorders' => ['borderStyle' => Border::BORDER_THIN]],
                     'font' => ['bold' => true],
                     'alignment' => [
@@ -279,7 +285,7 @@ class MachineReportExport implements FromCollection, WithEvents
                 // Row heights for header
                 $sheet->getRowDimension(5)->setRowHeight(30);
                 $sheet->getRowDimension(6)->setRowHeight(20);
-                
+
                 // Row heights for summary headers
                 $sheet->getRowDimension($summaryRow2)->setRowHeight(40);
                 $sheet->getRowDimension($summaryRow3)->setRowHeight(40);
@@ -287,7 +293,7 @@ class MachineReportExport implements FromCollection, WithEvents
                 // ==========================================
                 // NUMBER FORMATTING (INDONESIAN STYLE)
                 // ==========================================
-                
+
                 // Data Rows
                 $sheet->getStyle("D7:F{$dataEndRow}")->getNumberFormat()->setFormatCode('#,##0.0'); // HM Awal, Akhir, Pemakaian
                 $sheet->getStyle("G7:H{$dataEndRow}")->getNumberFormat()->setFormatCode('#,##0');   // Hari Kerja, Jam/Hari
@@ -297,17 +303,17 @@ class MachineReportExport implements FromCollection, WithEvents
                 $sheet->getStyle("F{$totalRow}")->getNumberFormat()->setFormatCode('#,##0.0'); // Total Jam
                 $sheet->getStyle("H{$totalRow}")->getNumberFormat()->setFormatCode('#,##0');   // Daily Avg
                 $sheet->getStyle("I{$totalRow}")->getNumberFormat()->setFormatCode('#,##0');   // Total Briket
-                $sheet->getStyle("F".($totalRow+1))->getNumberFormat()->setFormatCode('#,##0'); // Total Detik
-                $sheet->getStyle("F".($totalRow+2))->getNumberFormat()->setFormatCode('#,##0'); // Total Jam Kerja
+                $sheet->getStyle("F" . ($totalRow + 1))->getNumberFormat()->setFormatCode('#,##0'); // Total Detik
+                $sheet->getStyle("F" . ($totalRow + 2))->getNumberFormat()->setFormatCode('#,##0'); // Total Jam Kerja
 
                 // Summary Tables
-                $sheet->getStyle("B".($summaryRow2+1))->getNumberFormat()->setFormatCode('#,##0');   // Total Detik
-                $sheet->getStyle("E".($summaryRow2+1))->getNumberFormat()->setFormatCode('#,##0');   // Total Briket
-                $sheet->getStyle("G".($summaryRow2+1))->getNumberFormat()->setFormatCode('#,##0.0'); // 1 Batang ( Detik )
+                $sheet->getStyle("B" . ($summaryRow2 + 1))->getNumberFormat()->setFormatCode('#,##0');   // Total Detik
+                $sheet->getStyle("E" . ($summaryRow2 + 1))->getNumberFormat()->setFormatCode('#,##0');   // Total Briket
+                $sheet->getStyle("G" . ($summaryRow2 + 1))->getNumberFormat()->setFormatCode('#,##0.0'); // 1 Batang ( Detik )
 
-                $sheet->getStyle("B".($summaryRow3+1))->getNumberFormat()->setFormatCode('#,##0.0'); // Total Jam
-                $sheet->getStyle("E".($summaryRow3+1))->getNumberFormat()->setFormatCode('#,##0');   // Total Jam Kerja
-                $sheet->getStyle("G".($summaryRow3+1))->getNumberFormat()->setFormatCode('#,##0');   // Avg Machine
+                $sheet->getStyle("B" . ($summaryRow3 + 1))->getNumberFormat()->setFormatCode('#,##0.0'); // Total Jam
+                $sheet->getStyle("E" . ($summaryRow3 + 1))->getNumberFormat()->setFormatCode('#,##0');   // Total Jam Kerja
+                $sheet->getStyle("G" . ($summaryRow3 + 1))->getNumberFormat()->setFormatCode('#,##0');   // Avg Machine
             },
         ];
     }
