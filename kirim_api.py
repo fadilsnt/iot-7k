@@ -4,50 +4,47 @@ import time
 from datetime import datetime
 
 # URL endpoint API
-API_URL = "http://127.0.0.1:8000/api/rpm-readings"
+API_URL = "http://localhost:8000/api/machine-readings"
 
 # Jumlah mesin
-JUMLAH_MESIN = 10  # Dari MESIN-0 hingga MESIN-25
+JUMLAH_MESIN = 14  # Dari MESIN-0 hingga MESIN-25
 
-def kirim_data_mesin(rpm_id):
+def kirim_data_mesin(machine_id):
     """
     Membuat data acak dan mengirimkannya ke API untuk satu mesin.
     """
-    # Hasilkan data acak untuk endpoint rpm-readings
+    # Hasilkan data acak
+    # Sesekali beri nilai amp 0 (sekitar 20% kemungkinan)
     if random.random() < 0.2:
-        rpm = 0
+        amp = 0
     else:
-        rpm = round(random.uniform(500.0, 2500.0), 2)
+        amp = round(random.uniform(0.5, 5.0), 2)
         
-    hm = round(random.uniform(100.0, 5000.0), 2)
+    hm = round(random.uniform(100.0, 500.0), 2)
     temp = round(random.uniform(30.0, 90.0), 2)
-    humi = round(random.uniform(20.0, 95.0), 2)
+    moist = round(random.uniform(5.0, 20.0), 2)
     timestamp = datetime.now().isoformat()
 
     # Buat payload data
     payload = {
-        "rpm_id": rpm_id,
-        "rpm": rpm,
+        "machine_id": machine_id,
+        "amp": amp,
         "hm": hm,
         "temp": temp,
-        "humi": humi,
+        "moist": moist,
         "timestamp": timestamp
     }
 
     try:
         # Kirim permintaan POST ke API
-        headers = {
-            "Accept": "application/json"
-        }
-        response = requests.post(API_URL, json=payload, headers=headers)
+        response = requests.post(API_URL, json=payload)
         
-        # Cetak status respons dan header untuk verifikasi server
-        server_header = response.headers.get('Server', 'Unknown')
-        print(f"[{datetime.now().strftime('%H:%M:%S')}] {rpm_id} -> "
-              f"Status: {response.status_code}, Server: {server_header}, Response: {response.text}")
+        # Cetak status respons
+        print(f"Mengirim data untuk {machine_id}: "
+              f"Status {response.status_code} - Response: {response.text}")
 
     except requests.exceptions.RequestException as e:
-        print(f"Gagal mengirim data untuk {rpm_id}: {e}")
+        print(f"Gagal mengirim data untuk {machine_id}: {e}")
 
 if __name__ == "__main__":
     print("Memulai pengiriman data dummy ke API...")

@@ -8,7 +8,7 @@ from datetime import datetime
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 # URL endpoint API
-API_URL = "https://mgt.iot7k.com/api/rpm-readings"
+API_URL = "https://127.0.0.1:8000/api/rpm-readings"
 
 # Jumlah mesin
 JUMLAH_MESIN = 10  # Dari MESIN-0 hingga MESIN-25
